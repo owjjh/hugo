@@ -1211,8 +1211,79 @@ func (p *Page) update(f interface{}) error {
 	}
 	p.Params["iscjklanguage"] = p.isCJKLanguage
 
+	// dynamic frontmatter support
+	// TODO add config.toml setting to enable or disable this feature
+	updateDynamicMultiDay(p);
+	updateDynamicTaxonomy(p);
+
 	return nil
 
+}
+
+func updateDynamicMultiDay(p *Page) {
+	d, ok := p.Params["dynamicmultiday"].([]string)
+	if ok && len(d) == 2 {
+		start := p.Date
+		vnow := start
+		target := d[0]
+		numDays, ok := p.Params[strings.ToLower(d[1])].(int)
+
+		if(ok) {
+			res := make(map[string]bool)
+			for i := 0; i < numDays; i++ {
+				var f string
+				f = vnow.Format("2006")
+				res[f] = true
+				f = vnow.Format("2006-01")
+				res[f] = true
+				f = vnow.Format("2006-01-02")
+				res[f] = true
+
+				vnow = vnow.AddDate(0,0,1)
+			}
+
+			var fin []string
+			for k := range res {
+				 fin = append(fin,k)
+			}
+
+			p.Params[target] = fin
+		} else {
+			p.Params["notok2"] = "secondvalue not int"
+		}
+	} else {
+		p.Params["notok"] = "length not 2 or not array of strings"
+	}
+}
+
+func updateDynamicTaxonomy(p *Page) {
+	d, ok := p.Params["dynamictaxonomy"].([]string)
+	if ok && len(d) >= 2 {
+		target := d[0]
+		first := d[1]
+
+	 	firstList, ok := p.Params[first].([]string)
+		newList := make(map[string]bool)
+		if(ok) {
+			for _, post := range firstList {
+				newList[post] = true
+				for _, preKey := range d[2:] {
+						pre, ok := p.Params[preKey].(string)
+						if(ok) {
+							newList[pre+post] = true
+						} else {
+							p.Params[preKey+post] = "notok"
+						}
+				}
+			}
+		}
+
+		var fin []string
+		for k := range newList {
+			 fin = append(fin,k)
+		}
+		p.Params[target] = fin
+	}
 }
 
 func (p *Page) GetParam(key string) interface{} {
